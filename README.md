@@ -15,6 +15,6 @@ View your app in AI Studio: https://ai.studio/apps/568f86ff-cb71-4ddb-b5e1-474b1
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Copy [.env.example](.env.example) to `.env.local` and set `GEMINI_API_KEY`, `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID`, and `IMGBB_API_KEY`
 3. Run the app:
    `npm run dev`

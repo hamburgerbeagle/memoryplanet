@@ -10,6 +10,23 @@ export interface MemoryRecord {
   userNickname: string;
 }
 
+const readJsonResponse = async (response: Response) => {
+  const text = await response.text();
+  const contentType = response.headers.get('content-type') || '';
+
+  if (!text) {
+    return {};
+  }
+
+  if (contentType.includes('application/json')) {
+    return JSON.parse(text);
+  }
+
+  throw new Error(
+    `API 返回了非 JSON 内容 (${response.status} ${response.statusText})，请确认当前页面是通过 npm run dev 启动的 Express 服务访问，而不是 Vite/静态预览。`
+  );
+};
+
 export const fetchMemories = async (params: { userId?: string, category?: string } = {}, retries = 3): Promise<{ records: MemoryRecord[] }> => {
   const { userId, category } = params;
   console.log(`--- Fetching Memories via Proxy (User: ${userId || 'all'}, Cat: ${category || 'all'}, Attempts left: ${retries}) ---`);
@@ -25,16 +42,16 @@ export const fetchMemories = async (params: { userId?: string, category?: string
     if (!response.ok) {
       let errorMsg = 'Unknown error';
       try {
-        const data = await response.json();
+        const data = await readJsonResponse(response);
         errorMsg = data.error || data.message || JSON.stringify(data);
       } catch (e) {
-        errorMsg = response.statusText;
+        errorMsg = e instanceof Error ? e.message : response.statusText;
       }
       console.error('Proxy Fetch Error:', errorMsg);
       return { records: [] };
     }
 
-    const data = await response.json();
+    const data = await readJsonResponse(response);
     return data;
   } catch (error: any) {
     console.error('Network Error (Proxy Fetch):', error.message || error);
@@ -61,7 +78,7 @@ export const saveMemory = async (text: string, userId: string, category: string,
       body: JSON.stringify({ text, imageUrl, userId, category, userNickname })
     });
 
-    const data = await response.json();
+    const data = await readJsonResponse(response);
 
     if (!response.ok) {
       return { success: false, error: data.error || '服务器内部错误' };

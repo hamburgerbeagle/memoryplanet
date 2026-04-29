@@ -11,6 +11,8 @@ interface LaunchPortalProps {
   onBack: () => void;
 }
 
+const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
 const LaunchPortal: React.FC<LaunchPortalProps> = ({ onLaunch, onBack }) => {
   const [text, setText] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -29,32 +31,38 @@ const LaunchPortal: React.FC<LaunchPortalProps> = ({ onLaunch, onBack }) => {
         toast.error('图片太大啦 (最大支持 5MB)');
         return;
       }
+      if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
+        toast.error('目前仅支持 JPG、PNG、WebP 或 GIF 图片');
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
       setImageFile(file);
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
     }
   };
 
-  const uploadToImgBB = async (file: File): Promise<string> => {
-    const IMGBB_API_KEY = '03a21c4493321be704036d7236d78194';
-    const formData = new FormData();
-    formData.append('image', file);
-
+  const uploadImage = async (file: File): Promise<string> => {
     try {
       setUploadStatus('正在上传图片中...');
-      const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+      const response = await fetch('/api/upload-image', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file,
       });
 
-      const result = await response.json();
-      if (result.success) {
-        return result.data.url;
-      } else {
-        throw new Error(result.error?.message || '图片上传中转失败');
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || '图片上传失败');
       }
+
+      return result.url;
     } catch (error) {
-      console.error('ImgBB Upload Error:', error);
+      console.error('Image Upload Error:', error);
       throw error;
     }
   };
@@ -72,7 +80,7 @@ const LaunchPortal: React.FC<LaunchPortalProps> = ({ onLaunch, onBack }) => {
 
       // 1. Upload to ImgBB if file selected
       if (imageFile) {
-        finalImageUrl = await uploadToImgBB(imageFile);
+        finalImageUrl = await uploadImage(imageFile);
       }
 
       // 2. Save to Airtable
@@ -192,7 +200,7 @@ const LaunchPortal: React.FC<LaunchPortalProps> = ({ onLaunch, onBack }) => {
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               className="hidden"
               disabled={isLaunching}
             />

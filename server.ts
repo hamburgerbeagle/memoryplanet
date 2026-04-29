@@ -3,6 +3,10 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import Airtable from "airtable";
+import dotenv from "dotenv";
+
+dotenv.config({ path: ".env.local", quiet: true });
+dotenv.config({ quiet: true });
 
 // Global error handlers
 process.on('unhandledRejection', (reason, promise) => {
@@ -16,12 +20,29 @@ process.on('uncaughtException', (err) => {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Airtable Configuration
-const API_KEY = 'patAlPYd4gaRb7er6.9c43c444398ad35a0e6b0e13f80184fafa5dc81f1203adf0b005fe7a5c6b55d8';
-const BASE_ID = 'appRrfzauUm7FORyx';
-const TABLE_NAME = 'Memories';
+const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
+const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
+const TABLE_NAME = process.env.AIRTABLE_TABLE_NAME || 'Memories';
+const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
+const SUPPORTED_IMAGE_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
 
-const base = new Airtable({ apiKey: API_KEY }).base(BASE_ID);
+const getAirtableBase = () => {
+  const missing = [
+    !AIRTABLE_API_KEY && 'AIRTABLE_API_KEY',
+    !AIRTABLE_BASE_ID && 'AIRTABLE_BASE_ID',
+  ].filter(Boolean);
+
+  if (missing.length > 0) {
+    throw new Error(`缺少服务端环境变量: ${missing.join(', ')}`);
+  }
+
+  return new Airtable({ apiKey: AIRTABLE_API_KEY }).base(AIRTABLE_BASE_ID!);
+};
 
 async function startServer() {
   const app = express();
@@ -41,6 +62,44 @@ async function startServer() {
   });
 
   // API Routes
+  app.post("/api/upload-image", express.raw({ type: 'image/*', limit: '5mb' }), async (req, res) => {
+    try {
+      const contentType = (req.headers['content-type'] || '').split(';')[0].toLowerCase();
+      const extension = SUPPORTED_IMAGE_TYPES[contentType];
+
+      if (!extension) {
+        return res.status(415).json({ error: '仅支持 JPG、PNG、WebP 或 GIF 图片' });
+      }
+
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        return res.status(400).json({ error: '没有收到图片文件' });
+      }
+
+      if (!IMGBB_API_KEY) {
+        return res.status(500).json({ error: '缺少服务端环境变量: IMGBB_API_KEY' });
+      }
+
+      const formData = new FormData();
+      const imageBlob = new Blob([new Uint8Array(req.body)], { type: contentType });
+      formData.append('image', imageBlob, `memory.${extension}`);
+
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.success || !data.data?.url) {
+        return res.status(502).json({ error: data.error?.message || '图片上传失败，请稍后再试' });
+      }
+
+      res.json({ url: data.data.url });
+    } catch (error: any) {
+      console.error('Image Upload Error:', error);
+      res.status(500).json({ error: error.message || '图片上传失败，请稍后再试' });
+    }
+  });
+
   app.get("/api/memories", async (req, res) => {
     const { userId, category } = req.query;
     console.log(`GET /api/memories request received. Filter userId: ${userId || 'none'}, category: ${category || 'all'}`);
@@ -57,7 +116,7 @@ async function startServer() {
         filterByFormula = `AND({is_approved} = 1, {category} = '${category}')`;
       }
 
-      const records = await base(TABLE_NAME)
+      const records = await getAirtableBase()(TABLE_NAME)
         .select({
           filterByFormula,
           sort: [{ field: 'timestamp', direction: 'desc' }],
@@ -101,7 +160,7 @@ async function startServer() {
       }
 
       console.log('Creating record in Airtable with fields:', fields);
-      const createdRecords = await base(TABLE_NAME).create([{ fields }], { typecast: true });
+      const createdRecords = await getAirtableBase()(TABLE_NAME).create([{ fields }], { typecast: true });
       console.log('Successfully created record:', createdRecords[0].id);
       res.json({ success: true, records: createdRecords });
     } catch (error: any) {
@@ -129,6 +188,19 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (res.headersSent) {
+      return next(error);
+    }
+
+    if (error?.type === 'entity.too.large') {
+      return res.status(413).json({ error: '图片太大啦 (最大支持 5MB)' });
+    }
+
+    console.error('Unhandled API Error:', error);
+    res.status(500).json({ error: error?.message || '服务器内部错误' });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
