@@ -51,36 +51,43 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
     )
   );
 
-  const renderDetail = (memory: MemoryRecord) => (
+  const renderDetailOverlay = (memory: MemoryRecord) => (
     <motion.div
-      initial={{ height: 0 }}
-      animate={{ height: 'auto' }}
-      exit={{ height: 0 }}
-      transition={{ duration: 0.24, ease: 'easeOut' }}
-      className="overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="fixed inset-0 z-[120] flex justify-center bg-black/70 backdrop-blur-md"
     >
       <motion.div
-        initial={{ opacity: 0, y: -18, scale: 0.96 }}
+        initial={{ opacity: 0, y: 36, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -12, scale: 0.98 }}
-        transition={{ duration: 0.24, ease: 'easeOut' }}
-        className="relative z-20 mx-2 mt-4 mb-1 origin-top"
+        exit={{ opacity: 0, y: 28, scale: 0.98 }}
+        transition={{ duration: 0.28, ease: 'easeOut' }}
+        className="memory-archive-background relative h-screen w-full max-w-[430px] overflow-y-auto overflow-x-hidden custom-scrollbar px-6 py-10 pb-16"
+        style={{ touchAction: 'pan-y' }}
       >
-        <div className={`absolute -top-2 left-10 h-4 w-4 rotate-45 border-l border-t backdrop-blur-xl ${memory.category === 'Wish' ? 'border-[#a78bfa]/25 bg-[#161124]/95' : 'border-[#ffd700]/20 bg-[#11121f]/95'}`} />
-        <div className={`glass relative rounded-[24px] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.42)] ${memory.category === 'Wish' ? 'border-[#a78bfa]/20 bg-[#a78bfa]/10' : 'border-[#ffd700]/15 bg-white/[0.07]'}`}>
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => setSelectedDetail(null)}
+            className="rounded-full bg-white/10 px-5 text-white/70 hover:bg-white/20 hover:text-white tracking-[0.2em] uppercase text-[10px]"
+          >
+            <ArrowLeft className="w-3 h-3 mr-2" />
+            返回档案库
+          </Button>
           <Button
             variant="ghost"
             size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedDetail(null);
-            }}
-            className="absolute top-3 right-3 text-white/30 hover:text-white h-8 w-8"
+            onClick={() => setSelectedDetail(null)}
+            className="rounded-full bg-white/10 text-white/50 hover:bg-white/20 hover:text-white h-10 w-10"
           >
             <X className="w-4 h-4" />
           </Button>
+        </div>
 
-          <div className="mb-5 pr-9 flex justify-between items-start gap-4">
+        <div className={`glass relative rounded-[30px] p-7 shadow-[0_32px_90px_rgba(0,0,0,0.5)] ${memory.category === 'Wish' ? 'border-[#a78bfa]/25 bg-[#a78bfa]/10' : 'border-[#ffd700]/20 bg-white/[0.07]'}`}>
+          <div className="mb-7 flex justify-between items-start gap-4">
             <div>
               <span className={`text-[10px] tracking-[0.3em] uppercase font-mono ${memory.category === 'Wish' ? 'text-[#a78bfa]' : 'text-[#ffd700]'}`}>
                 {memory.category === 'Wish' ? 'Wish' : 'Archive'} No. #{memory.id.slice(-6).toUpperCase()}
@@ -95,11 +102,11 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
             )}
           </div>
 
-          <p className="text-white/90 font-light leading-relaxed text-base italic whitespace-pre-wrap break-words">
+          <p className="text-white/90 font-light leading-relaxed text-lg italic whitespace-pre-wrap break-words">
             {memory.textContent}
           </p>
 
-          <div className="mt-8 pt-5 border-t border-white/10 border-dashed flex justify-between items-start gap-4">
+          <div className="mt-10 pt-6 border-t border-white/10 border-dashed flex justify-between items-start gap-4">
             <div className="flex flex-col min-w-0">
               <span className="text-[8px] text-white/20 tracking-[0.2em] uppercase">Timestamp</span>
               <span className="text-[10px] text-white/40 tracking-widest break-words">
@@ -194,8 +201,6 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
           <div className="flex flex-col gap-6">
             <AnimatePresence mode="popLayout">
               {memories.map((memory, index) => {
-                const isSelected = selectedDetail?.id === memory.id;
-
                 return (
                 <motion.div
                   key={memory.id}
@@ -205,8 +210,8 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
                   className="cursor-pointer overflow-visible"
                 >
                   <Card
-                    onClick={() => setSelectedDetail(isSelected ? null : memory)}
-                    className={`glass p-6 rounded-[25px] border-white/5 hover:border-white/20 transition-all duration-500 group relative overflow-hidden flex flex-col animate-breathe receipt-edge ${memory.category === 'Wish' ? 'bg-[#a78bfa]/5' : ''} ${isSelected ? 'border-white/30' : ''}`}
+                    onClick={() => setSelectedDetail(memory)}
+                    className={`glass p-6 rounded-[25px] border-white/5 hover:border-white/20 transition-all duration-500 group relative overflow-hidden flex flex-col animate-breathe receipt-edge ${memory.category === 'Wish' ? 'bg-[#a78bfa]/5' : ''}`}
                   >
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/paper-fibers.png')] opacity-[0.03] pointer-events-none" />
                     
@@ -251,7 +256,7 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
 
                       <div className="flex items-center justify-between mt-2">
                         <span className={`text-[10px] tracking-[0.2em] transition-all uppercase font-medium ${memory.category === 'Wish' ? 'text-[#a78bfa] group-hover:text-white' : 'text-[#ffd700] group-hover:text-white'}`}>
-                          {isSelected ? '收起详情' : '点击查看详情 >'}
+                          点击查看详情 &gt;
                         </span>
                         <div className="flex gap-0.5 h-2 opacity-10">
                           {Array.from({ length: 8 }).map((_, i) => (
@@ -261,9 +266,6 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
                       </div>
                     </div>
                   </Card>
-                  <AnimatePresence>
-                    {isSelected && renderDetail(memory)}
-                  </AnimatePresence>
                 </motion.div>
                 );
               })}
@@ -291,6 +293,10 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {selectedDetail && renderDetailOverlay(selectedDetail)}
+      </AnimatePresence>
 
     </motion.div>
   );
