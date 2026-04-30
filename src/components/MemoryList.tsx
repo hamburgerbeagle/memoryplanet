@@ -37,18 +37,91 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
     load();
   }, [activeTab]);
 
+  const renderStatusBadge = (memory: MemoryRecord) => (
+    memory.isApproved ? (
+      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span className="text-[8px] text-emerald-400 tracking-[0.2em] uppercase font-medium">已点亮</span>
+      </div>
+    ) : (
+      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
+        <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+        <span className="text-[8px] text-orange-400 tracking-[0.2em] uppercase font-medium">审核中</span>
+      </div>
+    )
+  );
+
+  const renderDetail = (memory: MemoryRecord) => (
+    <motion.div
+      initial={{ opacity: 0, height: 0, y: -8 }}
+      animate={{ opacity: 1, height: 'auto', y: 0 }}
+      exit={{ opacity: 0, height: 0, y: -8 }}
+      transition={{ duration: 0.28, ease: 'easeOut' }}
+      className="overflow-hidden"
+    >
+      <div className="glass rounded-[24px] border-white/10 p-6 mt-3 mb-1 relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedDetail(null);
+          }}
+          className="absolute top-3 right-3 text-white/30 hover:text-white h-8 w-8"
+        >
+          <X className="w-4 h-4" />
+        </Button>
+
+        <div className="mb-5 pr-9 flex justify-between items-start gap-4">
+          <div>
+            <span className={`text-[10px] tracking-[0.3em] uppercase font-mono ${memory.category === 'Wish' ? 'text-[#a78bfa]' : 'text-[#ffd700]'}`}>
+              {memory.category === 'Wish' ? 'Wish' : 'Archive'} No. #{memory.id.slice(-6).toUpperCase()}
+            </span>
+            <div className={`w-12 h-[1px] mt-2 ${memory.category === 'Wish' ? 'bg-[#a78bfa]/30' : 'bg-[#ffd700]/30'}`} />
+          </div>
+
+          {activeTab === 'mine' && (
+            <div className="shrink-0">
+              {renderStatusBadge(memory)}
+            </div>
+          )}
+        </div>
+
+        <p className="text-white/90 font-light leading-relaxed text-base italic whitespace-pre-wrap break-words">
+          {memory.textContent}
+        </p>
+
+        <div className="mt-8 pt-5 border-t border-white/10 border-dashed flex justify-between items-start gap-4">
+          <div className="flex flex-col min-w-0">
+            <span className="text-[8px] text-white/20 tracking-[0.2em] uppercase">Timestamp</span>
+            <span className="text-[10px] text-white/40 tracking-widest break-words">
+              {memory.timestamp ? new Date(memory.timestamp).toLocaleString('zh-CN') : 'Pending'}
+            </span>
+          </div>
+          <div className="text-right min-w-0">
+            <span className="text-[8px] text-white/20 tracking-[0.2em] uppercase">Origin</span>
+            <span className="block text-[10px] text-white/60 tracking-widest font-medium italic break-words">
+              {memory.userNickname || '匿名星星'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-50 overflow-y-auto bg-[#05060f] custom-scrollbar"
+      className="absolute inset-0 z-50 overflow-y-auto overflow-x-hidden bg-[#05060f] custom-scrollbar"
+      style={{ touchAction: 'pan-y' }}
     >
       {/* Background Atmosphere */}
       <div className="atmosphere absolute inset-0 z-0" />
       <div className="nebula absolute top-[-10%] left-[-10%] w-[800px] h-[800px] opacity-30" />
       
-      <div className="relative z-10 w-full px-6 py-12 pb-24">
+      <div className="relative z-10 w-full max-w-full px-6 py-12 pb-24 overflow-x-hidden">
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-10 gap-6">
           <div className="w-full">
@@ -115,16 +188,21 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
         ) : (
           <div className="flex flex-col gap-6">
             <AnimatePresence mode="popLayout">
-              {memories.map((memory, index) => (
+              {memories.map((memory, index) => {
+                const isSelected = selectedDetail?.id === memory.id;
+
+                return (
                 <motion.div
                   key={memory.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  onClick={() => setSelectedDetail(memory)}
-                  className="cursor-pointer"
+                  className="cursor-pointer overflow-visible"
                 >
-                  <Card className={`glass p-6 rounded-[25px] border-white/5 hover:border-white/20 transition-all duration-500 group relative overflow-hidden flex flex-col animate-breathe receipt-edge ${memory.category === 'Wish' ? 'bg-[#a78bfa]/5' : ''}`}>
+                  <Card
+                    onClick={() => setSelectedDetail(isSelected ? null : memory)}
+                    className={`glass p-6 rounded-[25px] border-white/5 hover:border-white/20 transition-all duration-500 group relative overflow-hidden flex flex-col animate-breathe receipt-edge ${memory.category === 'Wish' ? 'bg-[#a78bfa]/5' : ''} ${isSelected ? 'border-white/30' : ''}`}
+                  >
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/paper-fibers.png')] opacity-[0.03] pointer-events-none" />
                     
                     {/* Category Icon for Wish */}
@@ -137,17 +215,7 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
                     {/* Status Badge for "Mine" tab */}
                     {activeTab === 'mine' && (
                       <div className="absolute top-4 right-4 z-20">
-                        {memory.isApproved ? (
-                          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[8px] text-emerald-400 tracking-[0.2em] uppercase font-medium">已点亮</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
-                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                            <span className="text-[8px] text-orange-400 tracking-[0.2em] uppercase font-medium">审核中</span>
-                          </div>
-                        )}
+                        {renderStatusBadge(memory)}
                       </div>
                     )}
                     
@@ -178,7 +246,7 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
 
                       <div className="flex items-center justify-between mt-2">
                         <span className={`text-[10px] tracking-[0.2em] transition-all uppercase font-medium ${memory.category === 'Wish' ? 'text-[#a78bfa] group-hover:text-white' : 'text-[#ffd700] group-hover:text-white'}`}>
-                          点击查看详情 &gt;
+                          {isSelected ? '收起详情' : '点击查看详情 >'}
                         </span>
                         <div className="flex gap-0.5 h-2 opacity-10">
                           {Array.from({ length: 8 }).map((_, i) => (
@@ -188,8 +256,12 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
                       </div>
                     </div>
                   </Card>
+                  <AnimatePresence>
+                    {isSelected && renderDetail(memory)}
+                  </AnimatePresence>
                 </motion.div>
-              ))}
+                );
+              })}
             </AnimatePresence>
           </div>
         )}
@@ -215,82 +287,6 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
         )}
       </div>
 
-      {/* Detail Modal */}
-      <AnimatePresence>
-        {selectedDetail && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-[#05060f]/80 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-h-[80vh] glass rounded-[30px] p-8 overflow-y-auto custom-scrollbar relative flex flex-col"
-            >
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setSelectedDetail(null)}
-                className="absolute top-4 right-4 text-white/30 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-
-              <div className="mb-6 flex justify-between items-start">
-                <div>
-                  <span className={`text-[10px] tracking-[0.3em] uppercase font-mono ${selectedDetail.category === 'Wish' ? 'text-[#a78bfa]' : 'text-[#ffd700]'}`}>
-                    {selectedDetail.category === 'Wish' ? 'Wish' : 'Archive'} No. #{selectedDetail.id.slice(-6).toUpperCase()}
-                  </span>
-                  <div className={`w-12 h-[1px] mt-2 ${selectedDetail.category === 'Wish' ? 'bg-[#a78bfa]/30' : 'bg-[#ffd700]/30'}`} />
-                </div>
-                
-                {activeTab === 'mine' && (
-                  <div className="mr-8">
-                    {selectedDetail.isApproved ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[8px] text-emerald-400 tracking-[0.2em] uppercase font-medium">已点亮</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
-                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                        <span className="text-[8px] text-orange-400 tracking-[0.2em] uppercase font-medium">审核中</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Image if exists - assuming imageUrl might be in the record if we add it later */}
-              {/* For now we use textContent as requested */}
-              
-              <div className="flex-grow">
-                <p className="text-white/90 font-light leading-relaxed text-lg italic whitespace-pre-wrap">
-                  {selectedDetail.textContent}
-                </p>
-              </div>
-
-              <div className="mt-10 pt-6 border-t border-white/10 border-dashed flex justify-between items-center">
-                <div className="flex flex-col">
-                  <span className="text-[8px] text-white/20 tracking-[0.2em] uppercase">Timestamp</span>
-                  <span className="text-[10px] text-white/40 tracking-widest">
-                    {new Date(selectedDetail.timestamp).toLocaleString('zh-CN')}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[8px] text-white/20 tracking-[0.2em] uppercase">Origin</span>
-                  <span className="text-[10px] text-white/60 tracking-widest font-medium italic">
-                    {selectedDetail.userNickname || '匿名星星'}
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 };
