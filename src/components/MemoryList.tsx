@@ -114,13 +114,9 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-50 overflow-y-auto overflow-x-hidden bg-[#05060f] custom-scrollbar"
+      className="memory-archive-background absolute inset-0 z-50 overflow-y-auto overflow-x-hidden custom-scrollbar"
       style={{ touchAction: 'pan-y' }}
     >
-      {/* Background Atmosphere */}
-      <div className="atmosphere absolute inset-0 z-0" />
-      <div className="nebula absolute top-[-10%] left-[-10%] w-[800px] h-[800px] opacity-30" />
-      
       <div className="relative z-10 w-full max-w-full px-6 py-12 pb-24 overflow-x-hidden">
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-10 gap-6">
