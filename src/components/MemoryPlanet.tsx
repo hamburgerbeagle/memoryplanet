@@ -13,6 +13,7 @@ import { fetchMemories, MemoryRecord } from '../services/airtable';
 interface Memory {
   id: string;
   text: string;
+  imageUrl: string;
   category: string;
   userNickname: string;
   position: [number, number, number];
@@ -158,13 +159,15 @@ interface MemoryPlanetProps {
 
 const MemoryPlanet: React.FC<MemoryPlanetProps> = ({ onLaunchClick, onExploreClick }) => {
   const [memories, setMemories] = useState<Memory[]>([]);
+  const [memoryCount, setMemoryCount] = useState(0);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [isExiting, setIsExiting] = useState(false);
   const controlsRef = useRef<any>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
 
   const loadMemories = async () => {
-    const { records: rawRecords } = await fetchMemories();
+    const { records: rawRecords, total } = await fetchMemories();
+    setMemoryCount(total ?? rawRecords.length);
     const targetCount = 30;
     
     const gaussianRandom = (mean = 0, stdev = 1) => {
@@ -180,6 +183,7 @@ const MemoryPlanet: React.FC<MemoryPlanetProps> = ({ onLaunchClick, onExploreCli
       return {
         id: record?.id || `mock-${i}`,
         text: record?.textContent || "这颗记忆星星很内向，还在酝酿它的故事~",
+        imageUrl: record?.imageUrl || "",
         category: record?.category || "Memory",
         userNickname: record?.userNickname || "匿名星星",
         position: [
@@ -349,7 +353,7 @@ const MemoryPlanet: React.FC<MemoryPlanetProps> = ({ onLaunchClick, onExploreCli
         <section className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[90%] flex flex-col gap-4">
           <div className="text-center mb-2">
             <p className="text-[10px] tracking-[0.2em] text-white/30 uppercase">
-              525 颗记忆星星已点亮 | 正在环绕核心运行
+              当前星群 {memoryCount} 颗星辰 | 正在环绕核心运行
             </p>
           </div>
           
@@ -401,6 +405,16 @@ const MemoryPlanet: React.FC<MemoryPlanetProps> = ({ onLaunchClick, onExploreCli
                 <p className="text-lg leading-relaxed font-light text-white/90 mb-6 line-clamp-6 overflow-hidden italic">
                   {selectedMemory.text}
                 </p>
+                {selectedMemory.imageUrl && (
+                  <div className="mb-6 max-h-48 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                    <img
+                      src={selectedMemory.imageUrl}
+                      alt="记忆图片"
+                      className="h-full w-full object-cover opacity-90"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
                 <button 
                   onClick={() => {
                     setSelectedMemory(null);

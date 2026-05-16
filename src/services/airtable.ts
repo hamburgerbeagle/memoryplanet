@@ -3,6 +3,7 @@ console.log('Airtable Service Initializing (Proxy Mode)');
 export interface MemoryRecord {
   id: string;
   textContent: string;
+  imageUrl: string;
   timestamp: string;
   isApproved: boolean;
   userId: string;
@@ -27,7 +28,7 @@ const readJsonResponse = async (response: Response) => {
   );
 };
 
-export const fetchMemories = async (params: { userId?: string, category?: string } = {}, retries = 3): Promise<{ records: MemoryRecord[] }> => {
+export const fetchMemories = async (params: { userId?: string, category?: string } = {}, retries = 3): Promise<{ records: MemoryRecord[]; total?: number }> => {
   const { userId, category } = params;
   console.log(`--- Fetching Memories via Proxy (User: ${userId || 'all'}, Cat: ${category || 'all'}, Attempts left: ${retries}) ---`);
   
@@ -66,7 +67,7 @@ export const fetchMemories = async (params: { userId?: string, category?: string
   }
 };
 
-export const saveMemory = async (text: string, userId: string, category: string, userNickname: string, imageUrl?: string): Promise<{ success: boolean; error?: string }> => {
+export const saveMemory = async (text: string, userId: string, category: string, userNickname: string): Promise<{ success: boolean; error?: string }> => {
   console.log('--- Saving Memory/Wish via Proxy ---');
   
   try {
@@ -75,7 +76,7 @@ export const saveMemory = async (text: string, userId: string, category: string,
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ text, imageUrl, userId, category, userNickname })
+      body: JSON.stringify({ text, userId, category, userNickname })
     });
 
     const data = await readJsonResponse(response);

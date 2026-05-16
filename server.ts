@@ -23,12 +23,17 @@ const __dirname = path.dirname(__filename);
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
 const TABLE_NAME = process.env.AIRTABLE_TABLE_NAME || 'Memories';
-const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
-const SUPPORTED_IMAGE_TYPES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
+const VALID_CATEGORIES = new Set(['Memory', 'Wish']);
+
+const escapeAirtableString = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+const getAttachmentUrl = (record: any) => {
+  const attachments = record.get('image_file');
+  if (!Array.isArray(attachments) || attachments.length === 0) {
+    return '';
+  }
+
+  return attachments[0]?.url || attachments[0]?.thumbnails?.large?.url || '';
 };
 
 const getAirtableBase = () => {
@@ -61,59 +66,22 @@ async function startServer() {
     res.json({ status: "ok", time: new Date().toISOString() });
   });
 
-  // API Routes
-  app.post("/api/upload-image", express.raw({ type: 'image/*', limit: '5mb' }), async (req, res) => {
-    try {
-      const contentType = (req.headers['content-type'] || '').split(';')[0].toLowerCase();
-      const extension = SUPPORTED_IMAGE_TYPES[contentType];
-
-      if (!extension) {
-        return res.status(415).json({ error: '仅支持 JPG、PNG、WebP 或 GIF 图片' });
-      }
-
-      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
-        return res.status(400).json({ error: '没有收到图片文件' });
-      }
-
-      if (!IMGBB_API_KEY) {
-        return res.status(500).json({ error: '缺少服务端环境变量: IMGBB_API_KEY' });
-      }
-
-      const formData = new FormData();
-      const imageBlob = new Blob([new Uint8Array(req.body)], { type: contentType });
-      formData.append('image', imageBlob, `memory.${extension}`);
-
-      const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok || !data.success || !data.data?.url) {
-        return res.status(502).json({ error: data.error?.message || '图片上传失败，请稍后再试' });
-      }
-
-      res.json({ url: data.data.url });
-    } catch (error: any) {
-      console.error('Image Upload Error:', error);
-      res.status(500).json({ error: error.message || '图片上传失败，请稍后再试' });
-    }
-  });
-
   app.get("/api/memories", async (req, res) => {
     const { userId, category } = req.query;
     console.log(`GET /api/memories request received. Filter userId: ${userId || 'none'}, category: ${category || 'all'}`);
     
     try {
+      const userIdParam = typeof userId === 'string' ? userId.trim() : '';
+      const categoryParam = typeof category === 'string' ? category.trim() : '';
       let filterByFormula = '{is_approved} = 1';
       
-      if (userId) {
-        filterByFormula = `{user_id} = '${userId}'`;
-      } else if (category === 'Memory') {
+      if (userIdParam) {
+        filterByFormula = `{user_id} = '${escapeAirtableString(userIdParam)}'`;
+      } else if (categoryParam === 'Memory') {
         // Fallback: 默认显示 category 为 Memory 或 未设置 category 的记录
         filterByFormula = `AND({is_approved} = 1, OR({category} = 'Memory', {category} = ''))`;
-      } else if (category) {
-        filterByFormula = `AND({is_approved} = 1, {category} = '${category}')`;
+      } else if (VALID_CATEGORIES.has(categoryParam)) {
+        filterByFormula = `AND({is_approved} = 1, {category} = '${categoryParam}')`;
       }
 
       const records = await getAirtableBase()(TABLE_NAME)
@@ -128,6 +96,7 @@ async function startServer() {
       const formatted = records.map(record => ({
         id: record.id,
         textContent: record.get('text_content') || '',
+        imageUrl: getAttachmentUrl(record),
         timestamp: record.get('timestamp') || '',
         isApproved: record.get('is_approved') || false,
         userId: record.get('user_id') || '',
@@ -135,7 +104,7 @@ async function startServer() {
         userNickname: record.get('user_nickname') || '匿名星星',
       }));
 
-      res.json({ records: formatted });
+      res.json({ records: formatted, total: formatted.length });
     } catch (error: any) {
       console.error('Airtable Fetch Error:', error);
       res.status(500).json({ error: error.message });
@@ -145,19 +114,22 @@ async function startServer() {
   app.post("/api/memories", async (req, res) => {
     console.log('POST /api/memories request received', req.body);
     try {
-      const { text, imageUrl, userId, category, userNickname } = req.body;
+      const { text, userId, category, userNickname } = req.body;
+      const trimmedText = typeof text === 'string' ? text.trim() : '';
+      const normalizedCategory = VALID_CATEGORIES.has(category) ? category : 'Memory';
+      const normalizedUserId = typeof userId === 'string' && userId.trim() ? userId.trim() : 'anonymous';
+
+      if (!trimmedText) {
+        return res.status(400).json({ error: '请先写下你的内容' });
+      }
       
       const fields: any = {
-        text_content: text,
+        text_content: trimmedText,
         is_approved: false,
-        user_id: userId || 'anonymous',
-        category: category || 'Memory',
-        user_nickname: userNickname || '',
+        user_id: normalizedUserId,
+        category: normalizedCategory,
+        user_nickname: typeof userNickname === 'string' ? userNickname.trim() : '',
       };
-
-      if (imageUrl) {
-        fields.image_file = [{ url: imageUrl }];
-      }
 
       console.log('Creating record in Airtable with fields:', fields);
       const createdRecords = await getAirtableBase()(TABLE_NAME).create([{ fields }], { typecast: true });

@@ -106,6 +106,17 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
             {memory.textContent}
           </p>
 
+          {memory.imageUrl && (
+            <div className="mt-8 overflow-hidden rounded-[22px] border border-white/10 bg-black/20">
+              <img
+                src={memory.imageUrl}
+                alt="记忆图片"
+                className="max-h-[420px] w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          )}
+
           <div className="mt-10 pt-6 border-t border-white/10 border-dashed flex justify-between items-start gap-4">
             <div className="flex flex-col min-w-0">
               <span className="text-[8px] text-white/20 tracking-[0.2em] uppercase">Timestamp</span>
@@ -249,6 +260,16 @@ const MemoryList: React.FC<MemoryListProps> = ({ onBack }) => {
                       
                       <div className="mb-4">
                         <div className={`w-full h-px mb-4 border-dashed border-t ${memory.category === 'Wish' ? 'border-[#a78bfa]/30' : 'border-white/10'}`} />
+                        {memory.imageUrl && (
+                          <div className="mb-4 h-32 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                            <img
+                              src={memory.imageUrl}
+                              alt="记忆图片缩略图"
+                              className="h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
                         <p className="text-white/90 font-light leading-relaxed text-sm italic line-clamp-4 overflow-hidden">
                           {memory.textContent}
                         </p>

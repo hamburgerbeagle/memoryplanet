@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { gsap } from 'gsap';
 import { Button } from '@/components/ui/button';
-import { Send, Camera, X, Loader2 } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { saveMemory } from '../services/airtable';
@@ -11,61 +11,13 @@ interface LaunchPortalProps {
   onBack: () => void;
 }
 
-const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-
 const LaunchPortal: React.FC<LaunchPortalProps> = ({ onLaunch, onBack }) => {
   const [text, setText] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>('');
   const [category, setCategory] = useState<'Memory' | 'Wish'>('Memory');
   const [isLaunching, setIsLaunching] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('图片太大啦 (最大支持 5MB)');
-        return;
-      }
-      if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
-        toast.error('目前仅支持 JPG、PNG、WebP 或 GIF 图片');
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-        return;
-      }
-      setImageFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-    }
-  };
-
-  const uploadImage = async (file: File): Promise<string> => {
-    try {
-      setUploadStatus('正在上传图片中...');
-      const response = await fetch('/api/upload-image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': file.type,
-        },
-        body: file,
-      });
-
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || !result.url) {
-        throw new Error(result.error || '图片上传失败');
-      }
-
-      return result.url;
-    } catch (error) {
-      console.error('Image Upload Error:', error);
-      throw error;
-    }
-  };
 
   const handleLaunch = async () => {
     if (!text.trim() || isLaunching) return;
@@ -76,16 +28,9 @@ const LaunchPortal: React.FC<LaunchPortalProps> = ({ onLaunch, onBack }) => {
     try {
       const userId = localStorage.getItem('local_user_uuid') || 'anonymous';
       const userNickname = localStorage.getItem('local_user_nickname') || '匿名星星';
-      let finalImageUrl = '';
 
-      // 1. Upload to ImgBB if file selected
-      if (imageFile) {
-        finalImageUrl = await uploadImage(imageFile);
-      }
-
-      // 2. Save to Airtable
       setUploadStatus('正在同步至星河档案...');
-      const result = await saveMemory(text, userId, category, userNickname, finalImageUrl);
+      const result = await saveMemory(text, userId, category, userNickname);
 
       if (result.success) {
         // ... (animation logic remains same)
@@ -93,8 +38,6 @@ const LaunchPortal: React.FC<LaunchPortalProps> = ({ onLaunch, onBack }) => {
           onComplete: () => {
             onLaunch(text);
             setText('');
-            setImageFile(null);
-            setPreviewUrl('');
             setIsLaunching(false);
           }
         });
@@ -194,60 +137,6 @@ const LaunchPortal: React.FC<LaunchPortalProps> = ({ onLaunch, onBack }) => {
             disabled={isLaunching}
           />
           
-          {/* Native File Upload UI */}
-          <div className="mt-4">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              className="hidden"
-              disabled={isLaunching}
-            />
-            
-            {!imageFile ? (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLaunching}
-                className="w-full h-11 md:h-14 bg-white/5 border border-dashed border-white/10 rounded-full flex items-center justify-center gap-3 hover:bg-white/10 hover:border-white/30 transition-all text-white/40 hover:text-white/60"
-              >
-                <Camera className="w-4 h-4" />
-                <span className="text-[11px] tracking-[0.2em] uppercase">📷 点击上传图片记忆 (可选)</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-3 p-2 pl-4 glass rounded-full border border-white/20">
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 flex-shrink-0">
-                  <img src={previewUrl} className="w-full h-full object-cover" alt="Selected" />
-                </div>
-                <div className="flex-grow overflow-hidden">
-                  <p className="text-[10px] text-white/60 truncate uppercase tracking-widest">{imageFile.name}</p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => {
-                    setImageFile(null);
-                    setPreviewUrl('');
-                  }}
-                  disabled={isLaunching}
-                  className="rounded-full text-white/30 hover:text-white h-7 w-7"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            )}
-          </div>
-          
-          {imageFile && (
-            <div className="mt-4 rounded-xl overflow-hidden border border-white/10 aspect-video relative group/img max-h-40">
-              <img 
-                src={previewUrl} 
-                alt="Preview" 
-                className="w-full h-full object-cover opacity-60 group-hover/img:opacity-100 transition-opacity"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-            </div>
-          )}
         </div>
 
         <div className="mt-8 md:mt-12 flex flex-col items-center gap-6 w-full">
